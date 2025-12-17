@@ -12,7 +12,7 @@
     """,
     'author': 'Juan Jose Moreno',
     'website': 'https://www.stones.solutions', 
-    'depends': ['base', 'contacts'],  # Dependencias correctas para manejar contactos
+    'depends': ['base', 'contacts', 'product','stock','l10n_mx',],
     'data': [
         'security/ir.model.access.csv',  # Definición de permisos
         'views/inherit_res_partner.xml',

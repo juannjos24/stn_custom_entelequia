@@ -22,6 +22,12 @@ def make_cors_headers():
 #   CONTROLADOR PRINCIPAL
 # ============================================
 class ApiController(http.Controller):
+    # Función de ayuda para construir respuestas HTTP
+    def _create_response(self, data, status_code):
+        headers = make_cors_headers()
+        headers.append(('Content-Type', 'application/json'))
+        return Response(json.dumps(data), status=status_code, headers=headers)
+    
     @http.route('/api/create_product',
             type='http',
             auth='none',
@@ -74,18 +80,22 @@ class ApiController(http.Controller):
                 400
             )
 
-        # 4. Conversión SAT → UNSPSC interno
+        # 4. Conversión SAT → UNSPSC interno        
         unspsc_id = False
         sat_id = product_data.get('unspsc_code_sat_id')
 
         if sat_id:
+            # IMPORTANTE: convertir a string porque 'code' es char
             unspsc = request.env['product.unspsc.code'].sudo().search([
-                ('sat_external_id', '=', sat_id)
+                ('code', '=', str(sat_id))
             ], limit=1)
 
             if not unspsc:
                 return self._create_response(
-                    {"status": "error", "message": "SAT code not mapped in Odoo"},
+                    {
+                        "status": "error",
+                        "message": f"UNSPSC code {sat_id} not found in product_unspsc_code table"
+                    },
                     400
                 )
 
