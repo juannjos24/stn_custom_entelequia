@@ -16,7 +16,8 @@
     'data': [
         'security/ir.model.access.csv',  # Definición de permisos
         'views/inherit_res_partner.xml',
-        'views/stings_key_views.xml',  # Vista de las claves API
+        'views/stings_key_views.xml',  
+        'views/inherit_product_template.xml'
     ],
     'installable': True,  # Correcto
     'application': True,  # Correcto si deseas que sea una aplicación visible

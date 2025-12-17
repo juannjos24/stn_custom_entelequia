@@ -1,0 +1,21 @@
+﻿<odoo>
+    <record id="view_product_template_form_inherit_stn" model="ir.ui.view">
+        <field name="name">product.template.form.inherit.stn</field>
+        <field name="model">product.template</field>
+
+        <!-- Vista principal del producto en Odoo 19 -->
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+
+        <field name="arch" type="xml">
+
+            <!-- Insertamos después del campo default_code -->
+            <xpath expr="//field[@name='default_code']" position="after">
+                <group>
+                    <field name="id_secundario_sap" string="ID Secundario SAP"/>
+                    <field name="pronosticado_sap" string="Pronosticado SAP"/>
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+</odoo>

@@ -6,7 +6,7 @@ from odoo.exceptions import AccessDenied
 # ============================================
 #   CONFIGURACIÓN CORS
 # ============================================
-ALLOWED_ORIGIN = "*"  # Cambia esto a tu dominio Angular si es necesario
+ALLOWED_ORIGIN = "*"  
 
 
 def make_cors_headers():
@@ -29,7 +29,7 @@ class ApiController(http.Controller):
         headers.append(('Content-Type', 'application/json'))
         return Response(json.dumps(data), status=status_code, headers=headers)
 
-    @http.route('/api/create_product',type='http', auth='none', methods=['POST'],csrf=False)
+    @http.route('/api/create_product',type='http', auth='public', methods=['POST'],csrf=False)
     def create_product(self, **kwargs):
 
         api_key = request.httprequest.headers.get('apiKey')
@@ -69,11 +69,21 @@ class ApiController(http.Controller):
                 {"status": "error", "message": "No valid product_data provided"},
                 400
             )
+        
+        # 3. Validación mínima de campos requeridos
+        required_fields = {
+            "name": "Nombre del producto",
+            "id_secundario_sap": "ID Secundario SAP"
+        }
 
-        # 3. Validación mínima
-        if not product_data.get('name'):
+        missing_fields = [label for field, label in required_fields.items() if not product_data.get(field)]
+
+        if missing_fields:
             return self._create_response(
-                {"status": "error", "message": "Missing required field: name"},
+                {
+                    "status": "error",
+                    "message": f"Missing required fields: {', '.join(missing_fields)}"
+                },
                 400
             )
 
@@ -106,8 +116,11 @@ class ApiController(http.Controller):
         # 5. Crear producto
         # ============================================
         try:
-            product = request.env['product.template'].sudo().create({
-                # ORDENADO SEGÚN TU EXCEL
+            # Forzar compañía antes del create (EVITA Expected singleton)
+            company = request.env['res.company'].sudo().search([], limit=1)
+            env_product = request.env['product.template'].sudo().with_company(company)
+
+            product = env_product.create({
                 'name': product_data.get('name'),
                 'sale_ok': product_data.get('sale_ok', True),
                 'purchase_ok': product_data.get('purchase_ok', True),
@@ -118,8 +131,13 @@ class ApiController(http.Controller):
                 'taxes_id': [(6, 0, product_data.get('taxes_id', []))],
                 'standard_price': product_data.get('standard_price', 0.0),
                 'categ_id': product_data.get('categ_id'),
-                'default_code': product_data.get('default_code'),
+                'default_code': product_data.get('default_code'),                
                 'unspsc_code_id': unspsc_id,
+                'is_storable':product_data.get('is_storable'),
+                'qty_available':product_data.get('qty_available'),
+                # Campos SAP
+                'pronosticado_sap': product_data.get('pronosticado_sap'),
+                'id_secundario_sap': product_data.get('id_secundario_sap'),
             })
 
         except Exception as e:
@@ -129,55 +147,7 @@ class ApiController(http.Controller):
             )
 
         # ============================================
-        # 6. Ajuste de Inventario (si viene qty_available)
-        # ============================================
-        qty = product_data.get('qty_available')
-
-        if qty and float(qty) > 0:
-
-            # Buscar ubicación WH/Stock
-            stock_location = request.env['stock.location'].sudo().search([
-                ('complete_name', '=', 'WH/Stock')
-            ], limit=1)
-
-            if not stock_location:
-                return self._create_response(
-                    {"status": "error", "message": "Stock location WH/Stock not found"},
-                    400
-                )
-
-            try:
-                # Crear ajuste de inventario
-                inventory = request.env['stock.inventory'].sudo().create({
-                    'name': f"Ajuste API producto {product.id}",
-                    'location_ids': [(6, 0, [stock_location.id])],
-                    'product_ids': [(6, 0, [product.id])],
-                    'company_id': request.env.company.id,
-                })
-
-                # Crear línea del ajuste
-                request.env['stock.inventory.line'].sudo().create({
-                    'inventory_id': inventory.id,
-                    'product_id': product.id,
-                    'location_id': stock_location.id,
-                    'product_uom_id': product.uom_id.id,
-                    'theoretical_qty': 0,
-                    'product_qty': qty,
-                })
-
-                # Validar el ajuste
-                inventory.action_validate()
-
-            except Exception as e:
-                return self._create_response(
-                    {
-                        "status": "error",
-                        "message": f"Product created but inventory adjustment failed: {str(e)}"},
-                    500
-                )
-
-        # ============================================
-        # 7. Respuesta final
+        # 6. Respuesta final
         # ============================================
         return self._create_response(
             {"status": "success", "product_id": product.id},201

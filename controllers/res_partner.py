@@ -6,7 +6,7 @@ from odoo.exceptions import AccessDenied
 # ============================================
 #   CONFIGURACIÓN CORS
 # ============================================
-ALLOWED_ORIGIN = "*"  # Cambia esto a tu dominio Angular si es necesario
+ALLOWED_ORIGIN = "*"  
 
 def make_cors_headers():
     return [
